@@ -96,13 +96,13 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
    hInst = hInstance; // Store instance handle in our global variable
 
-   InitPensAndBrushes();
+   Init();
 
    RECT windowRect;
    windowRect.left = 0;
    windowRect.top = 0;
-   windowRect.right = 320 * 3;
-   windowRect.bottom = 200 * 3;
+   windowRect.right = 320 * 4;
+   windowRect.bottom = 200 * 4;
 
    AdjustWindowRect(&windowRect, WS_OVERLAPPEDWINDOW, TRUE);
 
