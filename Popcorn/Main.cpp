@@ -94,28 +94,28 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 //
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
-   hInst = hInstance; // Store instance handle in our global variable
+    hInst = hInstance; // Store instance handle in our global variable
 
-   Init();
+    RECT windowRect;
+    windowRect.left = 0;
+    windowRect.top = 0;
+    windowRect.right = 320 * 4;
+    windowRect.bottom = 200 * 4;
 
-   RECT windowRect;
-   windowRect.left = 0;
-   windowRect.top = 0;
-   windowRect.right = 320 * 4;
-   windowRect.bottom = 200 * 4;
+    AdjustWindowRect(&windowRect, WS_OVERLAPPEDWINDOW, TRUE);
 
-   AdjustWindowRect(&windowRect, WS_OVERLAPPEDWINDOW, TRUE);
-
-   HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
+    HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
       0, 0, windowRect.right - windowRect.left, windowRect.bottom - windowRect.top, nullptr, nullptr, hInstance, nullptr);
 
-   if (!hWnd)
-      return FALSE;
+    if (!hWnd)
+       return FALSE;
 
-   ShowWindow(hWnd, nCmdShow);
-   UpdateWindow(hWnd);
+    Init_Engine(hWnd);
 
-   return TRUE;
+    ShowWindow(hWnd, nCmdShow);
+    UpdateWindow(hWnd);
+
+    return TRUE;
 }
 
 //
@@ -141,9 +141,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             case IDM_ABOUT:
                 DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
                 break;
+                
             case IDM_EXIT:
                 DestroyWindow(hWnd);
                 break;
+                
             default:
                 return DefWindowProc(hWnd, message, wParam, lParam);
             }
@@ -155,7 +157,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             HDC hdc = BeginPaint(hWnd, &ps);
             // TODO: Add any drawing code that uses hdc here...
 
-            Draw_Frame(hdc);
+            Draw_Frame(hdc, ps.rcPaint);
 
             EndPaint(hWnd, &ps);
         }
@@ -163,6 +165,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_DESTROY:
         PostQuitMessage(0);
         break;
+
+    case WM_KEYDOWN:
+        switch (wParam)
+        {
+        case VK_LEFT:
+            return On_Key_Down(EKT_Left);
+        case VK_RIGHT:
+            return On_Key_Down(EKT_Right);
+        case VK_SPACE:
+            return On_Key_Down(EKT_Space);
+            }
+        break;
+        
     default:
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
