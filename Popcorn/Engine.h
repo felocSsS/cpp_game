@@ -9,7 +9,7 @@ enum EKey_Type
     EKT_Space
 };
 
-const int Timer_ID = WM_USER + 1;
+constexpr int Timer_ID = WM_USER + 1;
 
 void Init_Engine(HWND hwnd);
 void Draw_Frame(HDC hdc, RECT& paint_area);
