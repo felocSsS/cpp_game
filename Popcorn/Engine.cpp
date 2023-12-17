@@ -1,55 +1,8 @@
 #include "Engine.h"
 
-#define _USE_MATH_DEFINES
-#include <cmath>
 #include <iostream>
 
-enum EBrick_Type
-{
-    EBT_None,
-    EBT_Red,
-    EBT_Blue
-};
-
-enum ELetter_Type
-{
-    ELT_None,
-    ELT_O
-};
-
-HWND Hwnd;
-HPEN Brick_Red_Pen, Brick_Blue_Pen, Platform_Circle_Pen, Platform_Inner_Pen, Highlight_Pen, Letter_Pen, BG_Pen, Ball_Pen, Border_Blue_Pen, Border_White_Pen;
-HBRUSH Brick_Red_Brush, Brick_Blue_Brush, Platform_Circle_Brush, Platform_Inner_Brush, BG_Brush, Ball_Brush, Border_Blue_Brush, Border_White_Brush;
-RECT Platform_Rect, Prev_Platform_Rect;
-RECT Level_Rect;
-RECT Ball_Rect, Prev_Ball_Rect;
-
-constexpr int Global_Scale = 4;
-constexpr int Brick_Width = 15;
-constexpr int Brick_Height = 7;
-constexpr int Cell_Width = 16;
-constexpr int Cell_Height = 8;
-constexpr int Level_X_Offset = 8;
-constexpr int Level_Width = 12; // in cells
-constexpr int Level_Height = 14; // in cells
-constexpr int Level_Y_Offset = 6;
-constexpr int Circle_Size = 7;
-constexpr int Platform_Y_Pos = 185;
-constexpr int Platform_Height = 7;
-constexpr int Ball_Size = 4;
-constexpr int Max_X_Pos = Level_X_Offset + Cell_Width * Level_Width;
-constexpr int Max_Y_Pos = 199 - Ball_Size;
-constexpr int Border_X_Offset = 6;
-constexpr int Border_Y_Offset = 4;
-
-int Inner_Width = 21;
-int Platform_X_Pos = Border_X_Offset;
-int Platform_X_Step = Global_Scale * 2;
-int Platform_Width = 28;
-int Ball_X_Pos = 20, Ball_Y_Pos = 170;
-double Ball_Speed = 3.0, Ball_Direction = M_PI - M_PI_4;
-
-char Level_01[Level_Height][Level_Width] =
+char Level_01[AsEngine::Level_Height][AsEngine::Level_Width] =
 {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -66,27 +19,14 @@ char Level_01[Level_Height][Level_Width] =
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
-
 //------------------------------------------------------------------------------------------------------------------------
-void Create_Pen_And_Brush(unsigned char r, unsigned char g, unsigned char b, HPEN& pen, HBRUSH& brush)
+AsEngine::AsEngine()
+: Inner_Width(21), Platform_X_Pos(Border_X_Offset), Platform_X_Step(Global_Scale * 2), Platform_Width(20),
+Ball_X_Pos(20), Ball_Y_Pos(170), Ball_Speed(3.0), Ball_Direction(M_PI - M_PI_4)
 {
-    pen = CreatePen(PS_SOLID, 0, RGB(r, g, b));
-    brush = CreateSolidBrush(RGB(r, g, b));
 }
 //------------------------------------------------------------------------------------------------------------------------
-void Redraw_Platform()
-{
-    Prev_Platform_Rect = Platform_Rect;
-    
-    Platform_Rect.left = Platform_X_Pos * Global_Scale;
-    Platform_Rect.top = Platform_Y_Pos * Global_Scale;
-    Platform_Rect.right = Platform_Rect.left + Platform_Width * Global_Scale;
-    Platform_Rect.bottom = Platform_Rect.top + Platform_Height * Global_Scale;
-    InvalidateRect(Hwnd, &Prev_Platform_Rect, FALSE);
-    InvalidateRect(Hwnd, &Platform_Rect, FALSE);
-}
-//------------------------------------------------------------------------------------------------------------------------
-void Init_Engine(HWND hwnd)
+void AsEngine::Init_Engine(HWND hwnd)
 {// настройка игры на старте
 
     Hwnd = hwnd;
@@ -111,7 +51,80 @@ void Init_Engine(HWND hwnd)
     SetTimer(Hwnd, Timer_ID, 50, 0);
 }
 //------------------------------------------------------------------------------------------------------------------------
-void Draw_Brick(HDC hdc, EBrick_Type brick_type, int x, int y)
+void AsEngine::Draw_Frame(HDC hdc, RECT& paint_area)
+{
+    RECT intersection_rect;
+
+    if(IntersectRect(&intersection_rect, &paint_area, &Level_Rect))
+        Draw_Level(hdc);
+    
+    if(IntersectRect(&intersection_rect, &paint_area, &Platform_Rect))
+        Draw_Platform(hdc, Platform_X_Pos, Platform_Y_Pos);
+    
+    /*for(int i = 0; i < 16; i++)
+    {
+        Draw_Brick_Letter(hdc, 20+ i * Cell_Width * Global_Scale, 100, EBT_Blue, ELT_O, i);
+        Draw_Brick_Letter(hdc, 20+ i * Cell_Width * Global_Scale, 160, EBT_Red, ELT_O, i);
+    }*/
+    
+    if(IntersectRect(&intersection_rect, &paint_area, &Ball_Rect))
+        Draw_Ball(hdc, paint_area);
+
+    Draw_Bounds(hdc, paint_area);
+}
+//------------------------------------------------------------------------------------------------------------------------
+int AsEngine::On_Key_Down(EKey_Type Key_Type)
+{
+    switch (Key_Type)
+    {
+    case EKT_Left:
+        Platform_X_Pos -= Platform_X_Step;
+
+        if(Platform_X_Pos <= Border_X_Offset)
+            Platform_X_Pos = Border_X_Offset;
+        
+        Redraw_Platform();
+        break;
+    case EKT_Right:
+        Platform_X_Pos += Platform_X_Step;
+
+        if(Platform_X_Pos >= Max_X_Pos - Platform_Width + 1)
+            Platform_X_Pos = Max_X_Pos - Platform_Width + 1;
+        
+        Redraw_Platform();
+        break;
+    case EKT_Space:
+        break;
+    }
+    return 0;
+}
+//------------------------------------------------------------------------------------------------------------------------
+int AsEngine::On_Timer()
+{
+    Move_Ball();
+    
+    return 0;
+}
+//------------------------------------------------------------------------------------------------------------------------
+void AsEngine::Create_Pen_And_Brush(unsigned char r, unsigned char g, unsigned char b, HPEN& pen, HBRUSH& brush)
+{
+    pen = CreatePen(PS_SOLID, 0, RGB(r, g, b));
+    brush = CreateSolidBrush(RGB(r, g, b));
+}
+//------------------------------------------------------------------------------------------------------------------------
+void AsEngine::Redraw_Platform()
+{
+    Prev_Platform_Rect = Platform_Rect;
+    
+    Platform_Rect.left = Platform_X_Pos * Global_Scale;
+    Platform_Rect.top = Platform_Y_Pos * Global_Scale;
+    Platform_Rect.right = Platform_Rect.left + Platform_Width * Global_Scale;
+    Platform_Rect.bottom = Platform_Rect.top + Platform_Height * Global_Scale;
+    InvalidateRect(Hwnd, &Prev_Platform_Rect, FALSE);
+    InvalidateRect(Hwnd, &Platform_Rect, FALSE);
+}
+//------------------------------------------------------------------------------------------------------------------------
+void AsEngine::Draw_Brick(HDC hdc, EBrick_Type brick_type, int x, int y)
 {// отрисовка кирпича
     
     HPEN pen;
@@ -145,7 +158,7 @@ void Draw_Brick(HDC hdc, EBrick_Type brick_type, int x, int y)
         2 * Global_Scale, 2 * Global_Scale);
 }
 //------------------------------------------------------------------------------------------------------------------------
-void Set_Brick_Letter_Colors(bool is_switch_color, HPEN& front_pen, HBRUSH& front_brush, HPEN& back_pen, HBRUSH& back_brush)
+void AsEngine::Set_Brick_Letter_Colors(bool is_switch_color, HPEN& front_pen, HBRUSH& front_brush, HPEN& back_pen, HBRUSH& back_brush)
 {// вывод падающей буквы
     if(is_switch_color)
     {
@@ -165,7 +178,7 @@ void Set_Brick_Letter_Colors(bool is_switch_color, HPEN& front_pen, HBRUSH& fron
     }
 }
 //------------------------------------------------------------------------------------------------------------------------
-void Draw_Brick_Letter(HDC hdc, int x, int y, EBrick_Type brick_type, ELetter_Type letter_type, int rotation_step)
+void AsEngine::Draw_Brick_Letter(HDC hdc, int x, int y, EBrick_Type brick_type, ELetter_Type letter_type, int rotation_step)
 { // вывод падающей буквы
     bool switch_color;
     double offset;
@@ -246,14 +259,14 @@ void Draw_Brick_Letter(HDC hdc, int x, int y, EBrick_Type brick_type, ELetter_Ty
     }
 }
 //------------------------------------------------------------------------------------------------------------------------
-void Draw_Level(HDC hdc)
+void AsEngine::Draw_Level(HDC hdc)
 { // отривка уровня
     for (int i = 0; i < Level_Height; i++)
         for (int j = 0; j < Level_Width; j++)
             Draw_Brick(hdc, (EBrick_Type)Level_01[i][j], Level_X_Offset + j * Cell_Width, Level_Y_Offset + i * Cell_Height);
 }
 //------------------------------------------------------------------------------------------------------------------------
-void Draw_Platform(HDC hdc, int x, int y)
+void AsEngine::Draw_Platform(HDC hdc, int x, int y)
 { // отрисовка платформы
 
     SelectObject(hdc, BG_Pen);
@@ -288,7 +301,7 @@ void Draw_Platform(HDC hdc, int x, int y)
         3 * Global_Scale,3 * Global_Scale);
 }
 //------------------------------------------------------------------------------------------------------------------------
-void Draw_Ball(HDC hdc, RECT& paint_area)
+void AsEngine::Draw_Ball(HDC hdc, RECT& paint_area)
 {
     // очищаем фон
     SelectObject(hdc, BG_Pen);
@@ -303,7 +316,7 @@ void Draw_Ball(HDC hdc, RECT& paint_area)
     Ellipse(hdc, Ball_Rect.left, Ball_Rect.top, Ball_Rect.right - 1, Ball_Rect.bottom - 1);  
 }
 //------------------------------------------------------------------------------------------------------------------------
-void Draw_Border(HDC hdc, int x, int y, bool top_border)
+void AsEngine::Draw_Border(HDC hdc, int x, int y, bool top_border)
 {// рисуем элемет уровня
     SelectObject(hdc, Border_Blue_Pen);
     SelectObject(hdc, Border_Blue_Brush);
@@ -330,7 +343,7 @@ void Draw_Border(HDC hdc, int x, int y, bool top_border)
         Rectangle(hdc, (x + 2) * Global_Scale, (y + 1) * Global_Scale, (x + 3) * Global_Scale, (y + 2) * Global_Scale);
 }
 //------------------------------------------------------------------------------------------------------------------------
-void Draw_Bounds(HDC hdc, RECT& paint_area)
+void AsEngine::Draw_Bounds(HDC hdc, RECT& paint_area)
 {// рисуем рамку уровня
     // рамка слева
     for(int i = 0; i < 50; i++)
@@ -349,55 +362,7 @@ void Draw_Bounds(HDC hdc, RECT& paint_area)
     }
 }
 //------------------------------------------------------------------------------------------------------------------------
-void Draw_Frame(HDC hdc, RECT& paint_area)
-{
-    RECT intersection_rect;
-
-    if(IntersectRect(&intersection_rect, &paint_area, &Level_Rect))
-        Draw_Level(hdc);
-    
-    if(IntersectRect(&intersection_rect, &paint_area, &Platform_Rect))
-        Draw_Platform(hdc, Platform_X_Pos, Platform_Y_Pos);
-    
-    /*for(int i = 0; i < 16; i++)
-    {
-        Draw_Brick_Letter(hdc, 20+ i * Cell_Width * Global_Scale, 100, EBT_Blue, ELT_O, i);
-        Draw_Brick_Letter(hdc, 20+ i * Cell_Width * Global_Scale, 160, EBT_Red, ELT_O, i);
-    }*/
-    
-    if(IntersectRect(&intersection_rect, &paint_area, &Ball_Rect))
-        Draw_Ball(hdc, paint_area);
-
-    Draw_Bounds(hdc, paint_area);
-}
-//------------------------------------------------------------------------------------------------------------------------
-int On_Key_Down(EKey_Type Key_Type)
-{
-    switch (Key_Type)
-    {
-    case EKT_Left:
-        Platform_X_Pos -= Platform_X_Step;
-
-        if(Platform_X_Pos <= Border_X_Offset)
-            Platform_X_Pos = Border_X_Offset;
-        
-        Redraw_Platform();
-        break;
-    case EKT_Right:
-        Platform_X_Pos += Platform_X_Step;
-
-        if(Platform_X_Pos >= Max_X_Pos - Platform_Width + 1)
-            Platform_X_Pos = Max_X_Pos - Platform_Width + 1;
-        
-        Redraw_Platform();
-        break;
-    case EKT_Space:
-        break;
-    }
-    return 0;
-}
-//------------------------------------------------------------------------------------------------------------------------
-void Check_Level_brick_Hit(int &next_y_pos)
+void AsEngine::Check_Level_brick_Hit(int &next_y_pos)
 {
     // корректируем движение шарика от кирпичей
     int brick_y_pos = Level_Y_Offset + Level_Height * Cell_Height;
@@ -420,7 +385,7 @@ void Check_Level_brick_Hit(int &next_y_pos)
     }
 }
 //------------------------------------------------------------------------------------------------------------------------
-void Move_Ball()
+void AsEngine::Move_Ball()
 {
     int next_x_pos, next_y_pos;
     int max_x_pos = Max_X_Pos - Ball_Size;
@@ -479,12 +444,4 @@ void Move_Ball()
 
     InvalidateRect(Hwnd, &Prev_Ball_Rect, FALSE);
     InvalidateRect(Hwnd, &Ball_Rect, FALSE);
-    
-}
-//------------------------------------------------------------------------------------------------------------------------
-int On_Timer()
-{
-    Move_Ball();
-    
-    return 0;
 }
