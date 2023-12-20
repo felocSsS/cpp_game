@@ -6,6 +6,7 @@ const AColor AsConfig::BG_Color(15, 63, 31);
 
 HPEN AsConfig::BG_Pen;    
 HBRUSH AsConfig::BG_Brush;
+int AsConfig::Current_Timer_Tick;
 
 //------------------------------------------------------------------------------------------------------------------------
 AColor::AColor(unsigned char r, unsigned char g, unsigned char b): R(r), G(g), B(b)
@@ -32,5 +33,10 @@ void AsConfig::Create_Pen_And_Brush(const AColor& color, HPEN& pen, HBRUSH& brus
 {
     pen = CreatePen(PS_SOLID, 0, RGB(color.R, color.G, color.B));
     brush = CreateSolidBrush(RGB(color.R, color.G, color.B));
+}
+//------------------------------------------------------------------------------------------------------------------------
+int AsConfig::Rand(int range)
+{
+    return rand() * range / RAND_MAX;
 }
 //------------------------------------------------------------------------------------------------------------------------
